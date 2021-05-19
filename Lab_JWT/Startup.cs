@@ -11,6 +11,8 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.OpenApi.Models;
+using Lab_JWT.Models;
+using Lab_JWT.Services;
 
 namespace Lab_JWT
 {
@@ -28,6 +30,22 @@ namespace Lab_JWT
         {
 
             services.AddControllers();
+
+            services.AddHttpContextAccessor();
+
+            #region Config data bind(strong type data)
+
+            services.Configure<JWTConfig>(Configuration.GetSection("JWTConfig"));
+
+            #endregion
+
+            #region Services register
+
+            services.AddSingleton<JWTBase, JWTServices>();
+
+            #endregion
+
+
             services.AddSwaggerGen(c =>
             {
                 c.SwaggerDoc("v1", new OpenApiInfo { Title = "Lab_JWT", Version = "v1" });
