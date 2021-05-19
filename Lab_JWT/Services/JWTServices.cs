@@ -76,7 +76,7 @@ namespace Lab_JWT.Services
                 SecurityTokenDescriptor tokenDescriptor = new SecurityTokenDescriptor
                 {
                     Issuer = issuer,
-                    //Audience = issuer, // 由於你的 API 受眾通常沒有區分特別對象，因此通常不太需要設定，也不太需要驗證
+                    Audience = issuer, // 設置驗證發行者對象，如果需要驗證Token發行者，需要設定此項目
                     //NotBefore = DateTime.Now, // 預設值就是 DateTime.Now
                     //IssuedAt = DateTime.Now, // 預設值就是 DateTime.Now
                     Subject = userClaimsIdentity, // Token 針對User資訊內容物件
