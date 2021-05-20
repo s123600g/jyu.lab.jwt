@@ -1,23 +1,23 @@
 namespace Lab_JWT.Models
 {
-    public class JWTConfig
+    public class Response
     {
         /// <summary>
-        /// 發行者
+        /// Token 字串
         /// </summary>
         /// <value></value>
-        public string Issuer { set; get; }
+        public string JwtToken { set; get; }
 
         /// <summary>
-        /// 加密金鑰
+        /// 執行狀態
         /// </summary>
         /// <value></value>
-        public string SignKey { set; get; }
+        public bool Status { set; get; }
 
         /// <summary>
-        /// 設置Token存活多久(分鐘)
+        /// 回應訊息
         /// </summary>
         /// <value></value>
-        public int ExpireDateTime { set; get; }
+        public string Msg { set; get; }
     }
 }

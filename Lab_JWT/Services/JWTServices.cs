@@ -67,6 +67,7 @@ namespace Lab_JWT.Services
 
                 #region Step 4. 建立簽章，依據金鑰
 
+                // 使用HmacSha256進行加密
                 SigningCredentials signingCredentials = new SigningCredentials(securityKey, SecurityAlgorithms.HmacSha256Signature);
 
                 #endregion
@@ -75,10 +76,10 @@ namespace Lab_JWT.Services
 
                 SecurityTokenDescriptor tokenDescriptor = new SecurityTokenDescriptor
                 {
-                    Issuer = issuer,
+                    Issuer = issuer, // 設置發行者資訊
                     Audience = issuer, // 設置驗證發行者對象，如果需要驗證Token發行者，需要設定此項目
-                    //NotBefore = DateTime.Now, // 預設值就是 DateTime.Now
-                    //IssuedAt = DateTime.Now, // 預設值就是 DateTime.Now
+                    NotBefore = DateTime.Now, // 設置可用時間， 預設值就是 DateTime.Now
+                    IssuedAt = DateTime.Now, // 設置發行時間，預設值就是 DateTime.Now
                     Subject = userClaimsIdentity, // Token 針對User資訊內容物件
                     Expires = DateTime.Now.AddMinutes(expireMinutes), // 建立Token有效期限
                     SigningCredentials = signingCredentials // Token簽章
@@ -109,46 +110,61 @@ namespace Lab_JWT.Services
             return response;
         }
 
+        // https://auth0.com/docs/tokens/json-web-tokens/json-web-token-claims#custom-claims
         /// <summary>
         /// 建置資訊聲明集合
         /// </summary>
-        /// <param name="jWTCliam">Token 資訊聲明內容物件</param>
+        /// <param name="jWTCliam">Token資訊聲明內容物件</param>
         /// <returns>一組收集資訊聲明集合</returns>
         private List<Claim> GenCliams(JWTCliam jWTCliam)
         {
             List<Claim> claims = new List<Claim>();
 
-            if (jWTCliam.aud != string.Empty)
+            // (audience)
+            // 設定Token接受者，用在驗證接收者驗證是否相符
+            if (jWTCliam.aud != null && jWTCliam.aud != string.Empty)
             {
                 claims.Add(new Claim(JwtRegisteredClaimNames.Aud, jWTCliam.aud));
             }
 
-            if (jWTCliam.exp != string.Empty)
+            // (expiration time)
+            // Token過期時間，一但超過這時間此Token就失效
+            if (jWTCliam.exp != null && jWTCliam.exp != string.Empty)
             {
                 claims.Add(new Claim(JwtRegisteredClaimNames.Exp, jWTCliam.exp));
             }
 
-            if (jWTCliam.iat != string.Empty)
+            //  (issued at time)
+            // Token發行時間，用在後面檢查Token發行多久
+            if (jWTCliam.iat != null && jWTCliam.iat != string.Empty)
             {
                 claims.Add(new Claim(JwtRegisteredClaimNames.Iat, jWTCliam.iat));
             }
 
-            if (jWTCliam.iss != string.Empty)
+            // (issuer)
+            // 發行者資訊
+            if (jWTCliam.iss != null && jWTCliam.iss != string.Empty)
             {
                 claims.Add(new Claim(JwtRegisteredClaimNames.Iss, jWTCliam.iss));
             }
 
-            if (jWTCliam.jti != string.Empty)
+            // (JWT ID)
+            // Token ID，避免Token重複在被套用
+            if (jWTCliam.jti != null && jWTCliam.jti != string.Empty)
             {
                 claims.Add(new Claim(JwtRegisteredClaimNames.Jti, jWTCliam.jti));
             }
 
-            if (jWTCliam.nbf != string.Empty)
+            // (not before time)
+            // Token有效起始時間，用來驗證Token可用時間
+            if (jWTCliam.nbf != null && jWTCliam.nbf != string.Empty)
             {
                 claims.Add(new Claim(JwtRegisteredClaimNames.Nbf, jWTCliam.nbf));
             }
 
-            if (jWTCliam.sub != string.Empty)
+            // (subject)
+            // Token 主題，放置該User內容
+            if (jWTCliam.sub != null && jWTCliam.sub != string.Empty)
             {
                 claims.Add(new Claim(JwtRegisteredClaimNames.Sub, jWTCliam.sub));
             }
