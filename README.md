@@ -10,6 +10,14 @@ description: Asp.net Core WebApi JWT小實作練習
 
 使用`asp.net core 5.0`
 
+### 參考連結
+
+* https://blog.miniasp.com/post/2019/12/16/How-to-use-JWT-token-based-auth-in-aspnet-core-31
+* https://blog.poychang.net/authenticating-jwt-tokens-in-asp-net-core-webapi/
+* https://mgleon08.github.io/blog/2018/07/16/jwt/
+* https://medium.com/%E9%BA%A5%E5%85%8B%E7%9A%84%E5%8D%8A%E8%B7%AF%E5%87%BA%E5%AE%B6%E7%AD%86%E8%A8%98/%E7%AD%86%E8%A8%98-%E9%80%8F%E9%81%8E-jwt-%E5%AF%A6%E4%BD%9C%E9%A9%97%E8%AD%89%E6%A9%9F%E5%88%B6-2e64d72594f8
+* https://auth0.com/docs/tokens/json-web-tokens/json-web-token-claims#custom-claims
+
 # 關於專案
 
 ## Nuget套件
