@@ -10,6 +10,8 @@ description: Asp.net Core WebApi JWT小實作練習
 
 使用`asp.net core 5.0`
 
+[ASP.NET Core Web Api 實作JWT驗證筆記 - HackMD](https://hackmd.io/gHmOswBaQauTVJ_TrwxTQg?view)
+
 ### 參考連結
 
 * https://blog.miniasp.com/post/2019/12/16/How-to-use-JWT-token-based-auth-in-aspnet-core-31
@@ -45,7 +47,7 @@ description: Asp.net Core WebApi JWT小實作練習
 > 使用擴充方法來註冊服務群組 <br/>
 > https://docs.microsoft.com/zh-tw/aspnet/core/fundamentals/dependency-injection?view=aspnetcore-5.0#register-groups-of-services-with-extension-methods
 
-透過相依性注入(dependency injection)
+透過相依性注入(Dependency Injection)
 
 * Step 1. 在`Startup.cs`進行服務註冊
 ```csharp=
