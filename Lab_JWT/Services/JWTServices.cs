@@ -5,7 +5,12 @@ using System.Collections.Generic;
 using System.Security.Claims;
 using System.Text;
 using System.IdentityModel.Tokens.Jwt;
+using System.Linq;
+using System.Threading.Tasks;
+using Microsoft.EntityFrameworkCore;
 using Lab_JWT.Models;
+using DBLib.DAL;
+using DBLib.Models;
 
 namespace Lab_JWT.Services
 {
@@ -19,24 +24,64 @@ namespace Lab_JWT.Services
         /// <param name="issur">Token 發行者資訊</param>
         /// <param name="expireMinutes">Token 有效期限(分鐘)</param>
         /// <returns>回應內容物件，內容屬性jwt放置Token字串</returns>
-        RunStatus GetJWT(
+        Task<RunStatus> GetJWT(
             JWTCliam jWTCliam,
             string secretKey,
             string issuer,
             int expireMinutes = 30
         );
+
+        /// <summary>
+        /// 根據原始Token進行刷新取得延續後新Token。
+        /// </summary>
+        /// <param name="JTI_Id">原始的Token內JTI ID</param>
+        /// <param name="jWTCliam">Token 資訊聲明內容物件</param>
+        /// <param name="secretKey">加密金鑰，用來做加密簽章用</param>
+        /// <param name="issur">Token 發行者資訊</param>
+        /// <param name="expireMinutes">Token 有效期限(分鐘)</param>
+        /// <returns>回應內容物件，內容屬性jwt放置Token字串</returns>
+        Task<RunStatus> RefreshToken(
+            string JTI_Id,
+            JWTCliam jWTCliam,
+            string secretKey,
+            string issuer,
+            int expireMinutes = 30
+        );
+
+        /// <summary>
+        /// 檢查Token是否可以再被延續，
+        /// 每一個Token只能刷新延續一次。<br/>
+        /// 依據Token資訊聲明內JTI ID去查詢資料庫紀錄是否已經有延續過。
+        /// </summary>
+        /// <param name="JTI_Id">原始的Token內JTI ID</param>
+        /// <returns></returns>
+        Task<bool> CheckTokenCanRefresh(
+            string JTI_Id
+        );
     }
 
     public class JWTServices : JWTBase
     {
+        /// <summary>
+        /// NLog紀錄實體
+        /// </summary>
         private readonly ILogger<JWTServices> log;
 
-        public JWTServices(ILogger<JWTServices> logger)
+        /// <summary>
+        /// 放置Token紀錄DbContext
+        /// </summary>
+        private readonly AuthenTokenContext db;
+
+        public JWTServices(
+            ILogger<JWTServices> logger,
+            AuthenTokenContext authenTokenContext
+        )
         {
             log = logger;
+            db = authenTokenContext;
         }
 
-        public RunStatus GetJWT(
+        public async Task<RunStatus> GetJWT(
             JWTCliam jWTCliam,
             string secretKey,
             string issuer,
@@ -47,7 +92,181 @@ namespace Lab_JWT.Services
 
             try
             {
+                // 取得Token
+                string getToken = await GeneraterToken(
+                    jWTCliam,
+                    secretKey,
+                    issuer,
+                    false,
+                    expireMinutes
+                );
+
+                switch (
+                    !string.IsNullOrEmpty(getToken)
+                )
+                {
+                    // 成功產生Token 字串
+                    case true:
+
+                        response.isSuccess = true; // 告訴使用此請求一方Token是否成功產生
+                        response.jwt = getToken; // 放置產生的Token字串
+                        response.msg = "Done.";
+
+                        break;
+
+                    // 產生Token字串失敗
+                    case false:
+
+                        response.isSuccess = false; // 告訴使用此請求一方Token是否成功產生
+                        response.jwt = string.Empty;
+                        response.msg = "產生Token發生錯誤，請洽系統管理員.";
+
+                        break;
+                }
+            }
+            catch (Exception ex)
+            {
+                log.LogError($"{ex.Message}\n{ex.StackTrace}");
+                response.isSuccess = false;
+                response.jwt = string.Empty;
+                response.msg = "產生Token 過程發生錯誤.";
+            }
+
+            return response;
+        }
+
+        public async Task<RunStatus> RefreshToken(
+            string JTI_Id,
+            JWTCliam jWTCliam,
+            string secretKey,
+            string issuer,
+            int expireMinutes = 30
+        )
+        {
+            RunStatus response = new RunStatus();
+
+            try
+            {
+                #region 取得新Token
+
+                // 取得Token
+                string getToken = await GeneraterToken(
+                    jWTCliam,
+                    secretKey,
+                    issuer,
+                    true,
+                    expireMinutes
+                );
+
+                switch (
+                   !string.IsNullOrEmpty(getToken)
+                )
+                {
+                    // 成功產生Token 字串
+                    case true:
+
+                        response.isSuccess = true; // 告訴使用此請求一方Token是否成功產生
+                        response.jwt = getToken; // 放置產生的Token字串
+                        response.msg = "Done.";
+
+                        break;
+
+                    // 產生Token字串失敗
+                    case false:
+
+                        response.isSuccess = false; // 告訴使用此請求一方Token是否成功產生
+                        response.jwt = string.Empty;
+                        response.msg = "產生Token發生錯誤，請洽系統管理員.";
+
+                        break;
+                }
+
+                #endregion
+
+                #region 將原本的Token可延續狀態給更新鎖定起來
+
+                // 取得原本舊紀錄
+                Token getOldToken = await (
+                    from t in db.Set<Token>()
+                    where t.TokenID == JTI_Id
+                    select t
+                ).FirstOrDefaultAsync();
+
+                // 將就紀錄延續狀態鎖定起來
+                getOldToken.LockRefresh = true;
+
+                db.Tokens.Update(getOldToken);
+
+                await db.SaveChangesAsync();
+
+                #endregion
+            }
+            catch (Exception ex)
+            {
+                log.LogError($"{ex.Message}\n{ex.StackTrace}");
+                response.isSuccess = false;
+                response.jwt = string.Empty;
+                response.msg = "產生新Token 過程發生錯誤.";
+            }
+
+            return response;
+        }
+
+        public async Task<bool> CheckTokenCanRefresh(
+            string JTI_Id
+        )
+        {
+            bool checkResult = false;
+
+            #region 檢查該Token是否可以在延續一次
+
+            // https://stackoverflow.com/a/51744808
+            // 如果你要用EF Core async Extension必須要
+            // using Microsoft.EntityFrameworkCore;
+            bool getLockRefreshStatus = await (
+                from t in db.Set<Token>()
+                where t.TokenID == JTI_Id
+                select t.LockRefresh
+            ).FirstOrDefaultAsync();
+
+            if (getLockRefreshStatus == true)
+            {
+                checkResult = true;
+            }
+
+            #endregion
+
+            return checkResult;
+        }
+
+        /// <summary>
+        /// 產生Token字串
+        /// </summary>
+        /// <param name="jWTCliam">Token 資訊聲明內容物件</param>
+        /// <param name="secretKey">加密金鑰，用來做加密簽章用</param>
+        /// <param name="issur">Token 發行者資訊</param>
+        /// <param name="lockRefresh">Token鎖定可延續狀態</param>
+        /// <param name="expireMinutes">Token 有效期限(分鐘)</param>
+        /// <returns>回應Token字串</returns>
+        private async Task<string> GeneraterToken(
+            JWTCliam jWTCliam,
+            string secretKey,
+            string issuer,
+            bool lockRefresh,
+            int expireMinutes = 30
+        )
+        {
+            string serializeToken = string.Empty;
+            DateTime getCurrentDateTime = DateTime.UtcNow;
+            DateTime getExpiredDateTime = getCurrentDateTime.AddMinutes(expireMinutes);
+            string getJTIId = Guid.NewGuid().ToString();
+
+            try
+            {
                 #region Step 1. 取得資訊聲明(claims)集合
+
+                // 賦予該Token JTI Id
+                jWTCliam.jti = getJTIId;
 
                 List<Claim> claims = GenCliams(jWTCliam);
 
@@ -78,10 +297,10 @@ namespace Lab_JWT.Services
                 {
                     Issuer = issuer, // 設置發行者資訊
                     Audience = issuer, // 設置驗證發行者對象，如果需要驗證Token發行者，需要設定此項目
-                    NotBefore = DateTime.Now, // 設置可用時間， 預設值就是 DateTime.Now
-                    IssuedAt = DateTime.Now, // 設置發行時間，預設值就是 DateTime.Now
+                    NotBefore = getCurrentDateTime, // 設置可用時間， 預設值就是 DateTime.Now
+                    IssuedAt = getCurrentDateTime, // 設置發行時間，預設值就是 DateTime.Now
                     Subject = userClaimsIdentity, // Token 針對User資訊內容物件
-                    Expires = DateTime.Now.AddMinutes(expireMinutes), // 建立Token有效期限
+                    Expires = getExpiredDateTime, // 建立Token有效期限
                     SigningCredentials = signingCredentials // Token簽章
                 };
 
@@ -91,23 +310,32 @@ namespace Lab_JWT.Services
 
                 JwtSecurityTokenHandler tokenHandler = new JwtSecurityTokenHandler(); // 建立一個JWT Token處理容器
                 SecurityToken securityToken = tokenHandler.CreateToken(tokenDescriptor);  // 將Token內容實體放入JWT Token處理容器
-                string serializeToken = tokenHandler.WriteToken(securityToken); // 最後將JWT Token處理容器序列化，這一個就是最後會需要的Token 字串
+                serializeToken = tokenHandler.WriteToken(securityToken); // 最後將JWT Token處理容器序列化，這一個就是最後會需要的Token 字串
 
                 #endregion
 
-                response.isSuccess = true; // 告訴使用此請求一方Token成功產生
-                response.jwt = serializeToken; // 放置產生的Token字串
-                response.msg = "Done.";
+                #region Step 7. 寫入Token紀錄至資料庫
+
+                Token tokenData = new Token()
+                {
+                    TokenID = getJTIId,
+                    LockRefresh = lockRefresh,
+                    CreateDateTime = getCurrentDateTime,
+                    ExpireDateTime = getExpiredDateTime
+                };
+
+                db.Tokens.Add(tokenData);
+
+                await db.SaveChangesAsync();
+
+                #endregion
             }
             catch (Exception ex)
             {
                 log.LogError($"{ex.Message}\n{ex.StackTrace}");
-                response.isSuccess = false;
-                response.jwt = string.Empty;
-                response.msg = "產生Token 過程發生錯誤.";
             }
 
-            return response;
+            return serializeToken;
         }
 
         // https://auth0.com/docs/tokens/json-web-tokens/json-web-token-claims#custom-claims

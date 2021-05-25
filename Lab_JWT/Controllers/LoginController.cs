@@ -42,7 +42,7 @@ namespace Lab_JWT.Controllers
         [Route("api/signin")]
         [HttpPost]
         [AllowAnonymous]
-        public Response SignIn()
+        public async Task<Response> SignIn()
         {
             Response res = new Response();
             JWTCliam cliam = new JWTCliam();
@@ -55,11 +55,11 @@ namespace Lab_JWT.Controllers
                 cliam.sub = Guid.NewGuid().ToString(); // 放User內容，這裡放自動產生Guid值
                 cliam.iat = DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString();
                 cliam.nbf = DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString();
-                cliam.jti = Guid.NewGuid().ToString(); // Token 識別獨立ID
+                // cliam.jti = Guid.NewGuid().ToString(); // Token 識別獨立ID，這裡不應該賦予，而是由JWT處理服務內給予
                 cliam.exp = getExpireDateTime.ToString();
 
                 // 執行產生JWT，取得回應結果
-                RunStatus getJWTResponse = jwtHelper.GetJWT(
+                RunStatus getJWTResponse = await jwtHelper.GetJWT(
                     cliam,
                     jwtConfig.SignKey,
                     jwtConfig.Issuer,

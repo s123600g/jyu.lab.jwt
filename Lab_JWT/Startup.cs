@@ -15,8 +15,12 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.OpenApi.Models;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.Extensions;
+using Microsoft.EntityFrameworkCore;
 using Lab_JWT.Models;
 using Lab_JWT.Services;
+using DBLib.Models;
+using DBLib.DAL;
 
 namespace Lab_JWT
 {
@@ -39,6 +43,17 @@ namespace Lab_JWT
                 // 設置Reponse內JSON key命名規則使用PascalCase而不是使用預設camelCase(駝峰式命名)
                 options.JsonSerializerOptions.PropertyNamingPolicy = null;
             });
+
+            #region 注入DbContext
+
+            string getSQLConnectionStr = Configuration.GetConnectionString("DefaultConnectionStrings");
+
+            services.AddDbContext<AuthenTokenContext>(config =>
+            {
+                config.UseSqlite(getSQLConnectionStr);
+            });
+
+            #endregion
 
             #region  Set authentication type to jwt
 
@@ -114,7 +129,7 @@ namespace Lab_JWT
             // 使用單例型態來進行服務註冊
             // 意謂者從app啟動時就會建立此服務，而後面所有的Http request都會用這個同一個服務實體
             // 當Http request進行response後，此服務實體還是會繼續存在不會被釋放掉
-            services.AddSingleton<JWTBase, JWTServices>();
+            services.AddTransient<JWTBase, JWTServices>();
 
             #endregion
 
